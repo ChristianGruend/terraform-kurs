@@ -187,7 +187,7 @@ resource "aws_lb_listener_rule" "instances" {
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
   load_balancer_type = "application"
-  subnets            = ["fehlt1", "fehlt2"]
+  subnets            = ["..."]
   security_groups    = [aws_security_group.alb.id]
 }
 ###Definition Load Balancer ENDE
