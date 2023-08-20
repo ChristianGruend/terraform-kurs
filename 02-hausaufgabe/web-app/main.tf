@@ -1,14 +1,4 @@
 terraform {
-  # Assumes s3 bucket and dynamo DB table already set up
-  # See /code/03-basics/aws-backend
-  backend "s3" {
-    bucket         = "devops-directive-tf-state"
-    key            = "04-variables-and-outputs/web-app/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-locking"
-    encrypt        = true
-  }
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -17,62 +7,41 @@ terraform {
   }
 }
 
-
 provider "aws" {
-  region = var.region
+  region = "eu-central-1"
 }
 
-resource "aws_instance" "instance_1" {
-  ami             = var.ami
-  instance_type   = var.instance_type
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
-              #!/bin/bash
-              echo "Hello, World 1" > index.html
-              python3 -m http.server 8080 &
-              EOF
+
+###Definition Security Groups ANFANG
+#Resource bedeutet NEU ERSTELLEN
+#Für Load Balancer
+resource "aws_security_group" "alb" {
+  name = "alb-security-group"
+  vpc_id = data.aws_vpc.default-vpc.id
 }
 
-resource "aws_instance" "instance_2" {
-  ami             = var.ami
-  instance_type   = var.instance_type
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
-              #!/bin/bash
-              echo "Hello, World 2" > index.html
-              python3 -m http.server 8080 &
-              EOF
+resource "aws_security_group_rule" "allow_alb_http_inbound" {
+  type              = "ingress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+
 }
 
-resource "aws_s3_bucket" "bucket" {
-  bucket_prefix = var.bucket_prefix
-  force_destroy = true
+resource "aws_security_group_rule" "allow_alb_all_outbound" {
+  type              = "egress"
+  security_group_id = aws_security_group.alb.id
+
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
 }
 
-resource "aws_s3_bucket_versioning" "bucket_versioning" {
-  bucket = aws_s3_bucket.bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_crypto_conf" {
-  bucket = aws_s3_bucket.bucket.bucket
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-data "aws_vpc" "default_vpc" {
-  default = true
-}
-
-data "aws_subnet_ids" "default_subnet" {
-  vpc_id = data.aws_vpc.default_vpc.id
-}
-
+#Für EC2
 resource "aws_security_group" "instances" {
   name = "instance-security-group"
 }
@@ -86,7 +55,67 @@ resource "aws_security_group_rule" "allow_http_inbound" {
   protocol    = "tcp"
   cidr_blocks = ["0.0.0.0/0"]
 }
+###Definition Security Groups ENDE
 
+###Definition EC2 Instances ANFANG
+resource "aws_instance" "instance_1" {
+  ami             = "ami-0c4c4bd6cf0c5fe52" # Ubuntu 20.04 LTS // us-central-1
+  instance_type   = "t2.micro"
+  security_groups = [aws_security_group.instances.name]
+  user_data       = <<-EOF
+              #!/bin/bash
+              echo "Hello, World 1" > index.html
+              python3 -m http.server 8080 &
+              EOF
+}
+
+resource "aws_instance" "instance_2" {
+  ami             = "ami-0c4c4bd6cf0c5fe52" # Ubuntu 20.04 LTS // us-east-1
+  instance_type   = "t2.micro"
+  security_groups = [aws_security_group.instances.name]
+  user_data       = <<-EOF
+              #!/bin/bash
+              echo "Hello, World 2" > index.html
+              python3 -m http.server 8080 &
+              EOF
+}
+###Definition EC2 Instances ENDE
+
+###Definition S3 Bucket ANFANG
+resource "aws_s3_bucket" "terraform_montagsbucket" {
+  bucket_prefix = "hausaufgabe_montagsbucket_1"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "bucket_versioning" {
+  bucket = aws_s3_bucket.terraform_montagsbucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_crypto_conf" {
+  bucket = aws_s3_bucket.terraform_montagsbucket.bucket
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+##Definition S3 Bucket ENDE
+
+###Definition VPC ANFANG
+data "aws_vpc" "default-vpc" {
+  id = "vpc-02a820597c8e68a19"
+}
+
+data "aws_subnet_ids" "default-subnet" {
+  vpc_id = data.aws_vpc.default-vpc.id
+}
+###Definition VPC ENDE
+
+
+###Definition Load Balancer ANFANG
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.load_balancer.arn
 
@@ -110,7 +139,7 @@ resource "aws_lb_target_group" "instances" {
   name     = "example-target-group"
   port     = 8080
   protocol = "HTTP"
-  vpc_id   = data.aws_vpc.default_vpc.id
+  #vpc_id   = data.aws_vpc.vpc-project-vpc.id
 
   health_check {
     path                = "/"
@@ -151,66 +180,10 @@ resource "aws_lb_listener_rule" "instances" {
   }
 }
 
-
-resource "aws_security_group" "alb" {
-  name = "alb-security-group"
-}
-
-resource "aws_security_group_rule" "allow_alb_http_inbound" {
-  type              = "ingress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 80
-  to_port     = 80
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-resource "aws_security_group_rule" "allow_alb_all_outbound" {
-  type              = "egress"
-  security_group_id = aws_security_group.alb.id
-
-  from_port   = 0
-  to_port     = 0
-  protocol    = "-1"
-  cidr_blocks = ["0.0.0.0/0"]
-
-}
-
-
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
   load_balancer_type = "application"
-  subnets            = data.aws_subnet_ids.default_subnet.ids
+  subnets            = data.aws_subnet_ids.default-subnet.ids
   security_groups    = [aws_security_group.alb.id]
-
 }
-
-resource "aws_route53_zone" "primary" {
-  name = var.domain
-}
-
-resource "aws_route53_record" "root" {
-  zone_id = aws_route53_zone.primary.zone_id
-  name    = var.domain
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.load_balancer.dns_name
-    zone_id                = aws_lb.load_balancer.zone_id
-    evaluate_target_health = true
-  }
-}
-
-resource "aws_db_instance" "db_instance" {
-  allocated_storage   = 20
-  storage_type        = "standard"
-  engine              = "postgres"
-  engine_version      = "12"
-  instance_class      = "db.t2.micro"
-  name                = var.db_name
-  username            = var.db_user
-  password            = var.db_pass
-  skip_final_snapshot = true
-}
+###Definition Load Balancer ENDE
