@@ -81,10 +81,7 @@ resource "aws_instance" "instance_1" {
 }
 
 resource "aws_instance" "instance_2" {
-  ami             = "fehlt" 
-  instance_type   = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.instances.id]
-  subnet_id     = "das_andere_subnet_im_vpc"
+  #Fehlende Tags vervollständigen, gerne aus instance_1 bedienen.
   user_data       = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
