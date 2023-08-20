@@ -11,13 +11,22 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+###Definition VPC ANFANG
+data "aws_vpc" "default-vpc" {
+  id = "ähh_das_fehlt"
+}
+
+data "aws_subnet_ids" "default-subnet" {
+  vpc_id = data.aws_vpc.default-vpc.id
+}
+###Definition VPC ENDE
 
 ###Definition Security Groups ANFANG
 #Resource bedeutet NEU ERSTELLEN
 #Für Load Balancer
 resource "aws_security_group" "alb" {
   name = "alb-security-group"
-  vpc_id = data.aws_vpc.default-vpc.id
+
 }
 
 resource "aws_security_group_rule" "allow_alb_http_inbound" {
@@ -44,6 +53,7 @@ resource "aws_security_group_rule" "allow_alb_all_outbound" {
 #Für EC2
 resource "aws_security_group" "instances" {
   name = "instance-security-group"
+
 }
 
 resource "aws_security_group_rule" "allow_http_inbound" {
@@ -59,9 +69,10 @@ resource "aws_security_group_rule" "allow_http_inbound" {
 
 ###Definition EC2 Instances ANFANG
 resource "aws_instance" "instance_1" {
-  ami             = "ami-0c4c4bd6cf0c5fe52" # Ubuntu 20.04 LTS // us-central-1
+  ami             = "fehlt" 
   instance_type   = "t2.micro"
-  security_groups = [aws_security_group.instances.name]
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  subnet_id     = "das_eine_subnet_im_vpc"
   user_data       = <<-EOF
               #!/bin/bash
               echo "Hello, World 1" > index.html
@@ -70,9 +81,10 @@ resource "aws_instance" "instance_1" {
 }
 
 resource "aws_instance" "instance_2" {
-  ami             = "ami-0c4c4bd6cf0c5fe52" # Ubuntu 20.04 LTS // us-east-1
+  ami             = "fehlt" 
   instance_type   = "t2.micro"
-  security_groups = [aws_security_group.instances.name]
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  subnet_id     = "das_andere_subnet_im_vpc"
   user_data       = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
@@ -83,7 +95,7 @@ resource "aws_instance" "instance_2" {
 
 ###Definition S3 Bucket ANFANG
 resource "aws_s3_bucket" "terraform_montagsbucket" {
-  bucket_prefix = "hausaufgabe_montagsbucket_1"
+  bucket_prefix = "montagsbucket1"
   force_destroy = true
 }
 
@@ -104,15 +116,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_crypto_con
 }
 ##Definition S3 Bucket ENDE
 
-###Definition VPC ANFANG
-data "aws_vpc" "default-vpc" {
-  id = "vpc-02a820597c8e68a19"
-}
 
-data "aws_subnet_ids" "default-subnet" {
-  vpc_id = data.aws_vpc.default-vpc.id
-}
-###Definition VPC ENDE
 
 
 ###Definition Load Balancer ANFANG
@@ -139,7 +143,7 @@ resource "aws_lb_target_group" "instances" {
   name     = "example-target-group"
   port     = 8080
   protocol = "HTTP"
-  #vpc_id   = data.aws_vpc.vpc-project-vpc.id
+  vpc_id = data.aws_vpc.default-vpc.id
 
   health_check {
     path                = "/"
@@ -183,7 +187,7 @@ resource "aws_lb_listener_rule" "instances" {
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
   load_balancer_type = "application"
-  subnets            = data.aws_subnet_ids.default-subnet.ids
+  subnets            = ["fehlt1", "fehlt2"]
   security_groups    = [aws_security_group.alb.id]
 }
 ###Definition Load Balancer ENDE
