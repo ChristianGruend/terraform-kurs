@@ -9,14 +9,15 @@ terraform {
 }
 
 provider "aws" {
-  #Hier stimmt noch was nicht...
-  region = "us-east-1"
+  #Hier stimmt noch was nicht... -> jetzt schon
+  region = "eu-central-1"
 }
 
 resource "aws_instance" "example" {
-  ami           = "ami-011899242bb902164" # Hier ebenfalls nicht...
+  ami           = "ami-0c4c4bd6cf0c5fe52" # Hier ebenfalls nicht... -> erledigt
   instance_type = "t2.micro"
-  #subnetz fehlt...
+  subnet_id = "subnet-0b928299edbd4deb7"
+  #subnetz fehlt...  -> nicht mehr
   #beispiel:
   #subnet_id     = "subnet-0d326eb072c662c70" #Mit eurem Subnetz ersetzen
 }

@@ -13,7 +13,7 @@ provider "aws" {
 
 ###Definition VPC ANFANG
 data "aws_vpc" "default-vpc" {
-  id = "ähh_das_fehlt"
+  id = "vpc-0c548fb5f39b1091b"
 }
 
 data "aws_subnet_ids" "default-subnet" {
@@ -25,9 +25,10 @@ data "aws_subnet_ids" "default-subnet" {
 #Resource bedeutet NEU ERSTELLEN
 #Für Load Balancer
 resource "aws_security_group" "alb" {
-  name = "alb-security-group"
-
+  name   = "alb-security-group"
+  vpc_id = data.aws_vpc.default-vpc.id
 }
+
 
 resource "aws_security_group_rule" "allow_alb_http_inbound" {
   type              = "ingress"
@@ -53,7 +54,7 @@ resource "aws_security_group_rule" "allow_alb_all_outbound" {
 #Für EC2
 resource "aws_security_group" "instances" {
   name = "instance-security-group"
-
+  vpc_id = data.aws_vpc.default-vpc.id
 }
 
 resource "aws_security_group_rule" "allow_http_inbound" {
@@ -69,10 +70,10 @@ resource "aws_security_group_rule" "allow_http_inbound" {
 
 ###Definition EC2 Instances ANFANG
 resource "aws_instance" "instance_1" {
-  ami             = "fehlt" 
+  ami             = "ami-0c4c4bd6cf0c5fe52" 
   instance_type   = "t2.micro"
   vpc_security_group_ids = [aws_security_group.instances.id]
-  subnet_id     = "das_eine_subnet_im_vpc"
+  subnet_id     = "subnet-00118742d4cc57cbd"
   user_data       = <<-EOF
               #!/bin/bash
               echo "Hello, World 1" > index.html
@@ -81,7 +82,11 @@ resource "aws_instance" "instance_1" {
 }
 
 resource "aws_instance" "instance_2" {
-  #Fehlende Tags vervollständigen, gerne aus instance_1 bedienen.
+  #Fehlende Tags vervollständigen, gerne aus instance_1 bedienen.  ->erledigt
+  ami             = "ami-0c4c4bd6cf0c5fe52" 
+  instance_type   = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.instances.id]
+  subnet_id     = "subnet-0b928299edbd4deb7"
   user_data       = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
@@ -184,7 +189,7 @@ resource "aws_lb_listener_rule" "instances" {
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
   load_balancer_type = "application"
-  subnets            = ["..."]
+  subnets            = ["subnet-0b928299edbd4deb7","subnet-00118742d4cc57cbd"]
   security_groups    = [aws_security_group.alb.id]
 }
 ###Definition Load Balancer ENDE
